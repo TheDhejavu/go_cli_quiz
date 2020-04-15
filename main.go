@@ -27,12 +27,13 @@ func check(e error) {
 func main() {
 	var que []Questions
 	var correct, wrong int = 0, 0
+	var timedUp bool = false
 
 	fmt.Println("Simple Shell Quiz")
 	fmt.Println("---------------------")
 	problemFile := flag.String("f", "/problems.csv", "This is the problem path")
 	timeLimit := flag.Int64("t", 30, "This is the time limit for the quiz")
-	
+
 	flag.Parse()
 	dir, err := os.Getwd()
 	check(err)
@@ -45,40 +46,49 @@ func main() {
 	check(err)
 
 	csv := csv.NewReader(file)
-	go func() {
-		for {
-			val, err := csv.Read()
-			if err == io.EOF {
-				break
-			}
-			check(err)
-
-			answer, err := strconv.Atoi(val[1])
-			question := val[0]
-			que = append(que, Questions{
-				Question: question,
-				Answer:   answer,
-			})
+	for {
+		val, err := csv.Read()
+		if err == io.EOF {
+			break
 		}
+		check(err)
 
+		answer, err := strconv.Atoi(val[1])
+		question := val[0]
+		que = append(que, Questions{
+			Question: question,
+			Answer:   answer,
+		})
+	}
+
+	QuizLoop:
 		for _, value := range que {
 			fmt.Printf("Question %s:", value.Question)
-			in := bufio.NewScanner(os.Stdin)
-			in.Scan()
-			ans, _ := strconv.Atoi(in.Text())
-			fmt.Println(ans == value.Answer)
+			answer := make(chan int)
+			go func() {
+				in := bufio.NewScanner(os.Stdin)
+				in.Scan()
+				ans, _ := strconv.Atoi(in.Text())
+				answer <- ans
+			}()
 
-			if ans == value.Answer {
-				correct++
-				fmt.Println("CORRECT")
-			} else {
-				fmt.Println("WRONG")
-				wrong++
+			select {
+			case <-timer.C:
+				timedUp = true
+				break QuizLoop
+			case ans := <-answer:
+				if ans == value.Answer {
+					correct++
+					fmt.Println("CORRECT")
+				} else {
+					fmt.Println("WRONG")
+					wrong++
+				}
 			}
 		}
-		fmt.Printf("You got %d questions correctly while you got %d wrongly\n out of %d", correct, wrong, len(que))
-	}()
 
-	<-timer.C
-	os.Exit(2)
+	fmt.Printf("\nYou got %d questions correctly while you got %d wrongly\n out of %d", correct, wrong, len(que))
+	if timedUp {
+		fmt.Println("\nWhooops, Time up")
+	}
 }
