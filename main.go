@@ -63,20 +63,16 @@ func main() {
 
 	QuizLoop:
 		for _, value := range que {
-			fmt.Printf("Question %s:", value.Question)
-			answer := make(chan int)
-			go func() {
-				in := bufio.NewScanner(os.Stdin)
-				in.Scan()
-				ans, _ := strconv.Atoi(in.Text())
-				answer <- ans
-			}()
+			fmt.Printf("Question %s = ", value.Question)
+			in := bufio.NewScanner(os.Stdin)
+			in.Scan()
+			ans, _ := strconv.Atoi(in.Text())
 
 			select {
 			case <-timer.C:
 				timedUp = true
 				break QuizLoop
-			case ans := <-answer:
+			default:
 				if ans == value.Answer {
 					correct++
 					fmt.Println("CORRECT")
